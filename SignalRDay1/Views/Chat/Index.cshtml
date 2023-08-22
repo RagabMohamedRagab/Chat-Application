@@ -1,0 +1,75 @@
+﻿@*@model IEnumerable<Chat>;
+@{
+    ViewData["Title"] = "Chatting";
+}
+
+<section class="d-flex flex-column">
+    <div class="d-flex">
+        <input type="text" id="txt" class="form-control" style="flex-basis:75%" placeholder="Enter text" />
+        <button class="btn btn-success mx-5" style="flex-basis:20%" onclick="Send()">Send</button>
+    </div>
+    <br />
+    <div class="d-flex">
+        <input type="text" id="Gtxt" class="form-control" style="flex-basis:50%" placeholder="Group Name" />
+        <button class="btn btn-primary mx-5" style="flex-basis:20%" onclick="Join()">Join To Group</button>
+        <button class="btn btn-danger mx-5" style="flex-basis:20%" onclick="SendToGroup()">Send To Group</button>
+    </div>
+</section>
+
+<br />
+<ul id="ul">
+    @if (Model.Any())
+    {
+        foreach (var chat in Model)
+        {
+            <li>@chat.Name : @chat.Message </li>
+        }
+    }
+</ul>
+
+
+
+
+
+
+
+@section Scripts {
+    <script>
+
+        /*
+          1- Define Connection.
+          2- init HubProxy.
+          3- Start Connection.
+          4- Call Server Funcatiolity .
+          5- Response Call Back Function From Server.
+        */
+        var con = new signalR.HubConnectionBuilder().withUrl("/chat").build();
+        // start connection
+        con.start();
+        // Call Back Function
+        con.on("SendToClients", function (chat) {
+            $("#ul").append(`<li>${chat.name}:${chat.message}</li>`);
+        });
+        con.on("NewMemmber", function (gN, name) {
+            debugger;
+            $("#ul").append(`<li><i>${gN}:${name}</i></li>`);
+        })
+        con.on("MesgInGroup",function(msg){
+            debugger;
+            $("#ul").append(`<li><b>${msg}:${user}</b></li>`);
+        })
+        var user = prompt("Enter UserName");
+        // Calling Funcation Server
+        function Send() {
+            con.invoke("ReceiveFromServer", { Name: user, Message: $("#txt").val() });
+        }
+        function Join() {
+            debugger;
+            con.invoke("JoinToGroup", $("#Gtxt").val(), user);
+        }
+        function SendToGroup(){
+            debugger;
+            con.invoke("SendMessageToGroup", $("#Gtxt").val(), $("#txt").val());
+        }
+    </script>
+}*@

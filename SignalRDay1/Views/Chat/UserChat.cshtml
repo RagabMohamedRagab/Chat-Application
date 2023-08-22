@@ -1,0 +1,198 @@
+﻿@inject IHttpContextAccessor _httpContextAccessor;
+@model List<UserChatViewModel> ;
+@{
+    ViewData["Title"] = "Chat";
+
+}
+
+@if (Model.Any())
+{
+    <section style="background-color: #eee;">
+        <div class="container py-5">
+
+            <div class="row">
+
+                <div class="col-md-6 col-lg-5 col-xl-4 mb-4 mb-md-0" style="border-right: 3px solid #a4a0a0;">
+
+                    <h5 class="font-weight-bold mb-3 text-center text-lg-start">Member</h5>
+
+                    <div class="card">
+                        <div class="card-body">
+
+                            <ul class="list-unstyled mb-0">
+                                @foreach (var user in Model.OrderBy(b => b.Name))
+                                {
+                                    <li class="p-2 border-bottom" onclick="GetAllMesg('@user.UserId')">
+                                        <a href="#!" class="d-flex justify-content-between">
+                                            <div class="d-flex flex-row">
+                                                <img src="@user.ImgProfile" alt="avatar"
+                                                     class="rounded-circle d-flex align-self-center me-3 shadow-1-strong" width="60" style="border: 1px solid #0b21eb;">
+                                                <div class="pt-1">
+                                                    <p class="fw-bold mb-0">@user.Name</p>
+                                                    <p class="small text-muted"></p>
+                                                </div>
+                                            </div>
+                                            <div class="pt-1">
+                                                <p class="small text-muted mb-1"></p>
+                                                <span class="badge bg-danger float-end"></span>
+                                            </div>
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="col-md-6 col-lg-7 col-xl-8">
+
+                    <ul id="all" data-mdb-perfect-scrollbar=" true" style="overflow:hidden; overflow-y:auto;height:450px; width:100%;">
+                    </ul>
+
+                    <div class="card-footer text-muted d-flex justify-content-start align-items-center p-3" style="opacity:0" id="send">
+
+                        <input type="text" class="form-control form-control-lg" id="txt"
+                               placeholder="Type message" style="margin-right:3%">
+                        <button class="btn btn-primary" id="MSG">Send</button>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    </section>
+}
+@section Scripts{
+    <script>
+    
+        var recivedIdUser;
+
+        function GetAllMesg(userid) {
+            recivedIdUser = userid;
+            let button = document.getElementById("send");
+            console.log(userid);
+            $.ajax({
+                url: '/Chat/ChatBetweenUsers',
+                type: "GET",
+                data: { userId: userid },
+                success: function (data) {
+                    button.style.opacity='1';
+                    $("#all").empty();
+                    console.log(data)
+                    $.each(data, function (index, val) {
+                       
+                        var html = '';
+                        button.style.opacity = '1'
+                        if (val.senderId == '@_httpContextAccessor.HttpContext?.Request.Cookies["UserId"]') {
+                            html += `
+                                       <li class="d-flex justify-content-end mb-4">
+                                          <div class="card" style="max-width: 50%;">
+                                                   <div class="card-body">
+                                                       <p class="mb-0">${val.text}</p>
+                                                </div>
+                                                   <div class="card-header d-flex justify-content-end p-3">
+                                                                     <p class="text-muted small mb-0"><i class="far fa-clock"></i>${val.time}</p>
+                                                     </div>
+                                             </div>
+                                        </li>`;
+                            
+                        } else {
+                            html += `<li class="d-flex justify-content-start mb-4">
+                                          <div class="card" style="max-width: 50%;">
+                                                         <div class="card-body">
+                                                               <p class="mb-0">${val.text}</p>
+                                                        </div>
+                                                           <div class="card-header d-flex justify-content-end p-3">
+                                                                             <p class="text-muted small mb-0"><i class="far fa-clock"></i>${val.time}</p>
+                                                             </div>
+                                             </div>
+                                        </li>`;
+                        }
+                        $("#all").append(html);
+                        $('#all').scrollTop($('#all')[0].scrollHeight);
+
+                    });
+                }
+
+            })
+        }   // Send MSG To User
+     
+            $("#MSG").on("click", function () {
+                var text = $("#txt").val();
+                var senderId = '@_httpContextAccessor.HttpContext?.Request.Cookies["UserId"]';
+
+                $.ajax({
+                    url: '/Chat/MSGUser',
+                    type: 'POST',
+                    data: { model: { Text: text, SenderId: senderId, ReciverId: recivedIdUser } },
+                    success: function (data) {
+                        console.log(data);
+                        var html = '';
+                        html += `
+                                     <li class="d-flex justify-content-end mb-4">
+                                          <div class="card" style="max-width: 50%;">
+
+                                                   <div class="card-body">
+                                                       <p class="mb-0">${data.text}</p>
+                                                </div>
+                                                         <div class="card-header d-flex justify-content-end p-3">
+                                                                     <p class="text-muted small mb-0"><i class="far fa-clock"></i>${data.time}</p>
+                                                           </div>
+                                             </div>
+                                        </li>`;
+                        $("#all").append(html);
+                        // black input after send
+                        $("#txt").val('');
+                        // Scroll
+                        $('#all').scrollTop($('#all')[0].scrollHeight);
+
+                    //// Call Server Hub Server
+                    Connected(text);
+                        
+                        }
+                  
+
+            })
+            })
+   
+            var con = new signalR.HubConnectionBuilder().withUrl("/chat").build();
+            con.start().catch(function (e) {
+            });
+            con.on("ReceiveMessage", function (dir, mesg) {
+                debugger
+                var val = '';
+                val += `
+                                   <li class="d-flex justify-content-${dir} mb-4">
+                                             <div class="card" style="max-width: 50%;">
+                                                      <div class="card-body">
+                                                               <p class="mb-0">${mesg.text}</p>
+                                                            </div>
+                                                                <div class="card-header d-flex justify-content-end p-3">
+                                                                   <p class="text-muted small mb-0"><i class="far fa-clock"></i>${mesg.time}</p>
+                                                                        </div>
+                                                                  </div>
+                                                               </li>`
+                $("#all").append(val);
+            $('#all').scrollTop($('#all')[0].scrollHeight);
+            });
+            function Connected(text){
+            //// Call Server Hub Server
+            con.invoke("SendMsg", recivedIdUser, '@_httpContextAccessor.HttpContext?.Request.Cookies["UserId"]', { Text: text });
+            }
+       
+     
+     
+      
+
+    </script>
+
+
+}
+
+
+
+
+
+
